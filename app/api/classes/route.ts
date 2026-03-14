@@ -12,7 +12,7 @@ function notConfigured() {
   return NextResponse.json({ error: 'Supabase is not configured. See .env.local.example.' }, { status: 503 })
 }
 
-// GET /api/classes — list all upcoming classes with registration counts
+// GET /api/classes — list only future classes with registration counts
 export async function GET() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return notConfigured()
   const supabase = serverClient()
@@ -20,6 +20,7 @@ export async function GET() {
   const { data: classes, error } = await supabase
     .from('classes')
     .select('*, registrations(count)')
+    .gte('start_time', new Date().toISOString())
     .order('start_time', { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -44,19 +45,28 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'title and start_time are required' }, { status: 400 })
   }
 
+  const dur = duration_minutes || 60
+  const newStart = new Date(start_time).getTime()
+  const newEnd = newStart + dur * 60000
+
+  // Overlap check in application layer
+  const { data: existing } = await supabase.from('classes').select('start_time, duration_minutes')
+  const overlap = (existing ?? []).some((c: any) => {
+    const s = new Date(c.start_time).getTime()
+    const e = s + (c.duration_minutes || 60) * 60000
+    return newStart < e && newEnd > s
+  })
+  if (overlap) {
+    return NextResponse.json({ error: 'A class already exists at this time. Please choose a different slot.' }, { status: 409 })
+  }
+
   const { data, error } = await supabase
     .from('classes')
-    .insert({ title, instructor: instructor || 'Studio', start_time, duration_minutes: duration_minutes || 60 })
+    .insert({ title, instructor: instructor || 'Studio', start_time, duration_minutes: dur })
     .select()
     .single()
 
-  if (error) {
-    // Overlap exclusion constraint
-    if (error.code === '23P01' || error.message?.includes('overlap')) {
-      return NextResponse.json({ error: 'A class already exists at this time. Please choose a different slot.' }, { status: 409 })
-    }
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json(data, { status: 201 })
 }

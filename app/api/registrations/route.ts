@@ -41,33 +41,48 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'class_id, full_name, and phone are required' }, { status: 400 })
   }
 
-  // Check if already registered (by phone)
+  // Check class exists and hasn't started yet
+  const { data: cls } = await supabase
+    .from('classes')
+    .select('max_capacity, start_time')
+    .eq('id', class_id)
+    .single()
+
+  if (!cls) return NextResponse.json({ error: 'Class not found' }, { status: 404 })
+  if (new Date(cls.start_time) <= new Date()) {
+    return NextResponse.json({ error: 'לא ניתן להירשם לשיעור שכבר התחיל.' }, { status: 409 })
+  }
+
+  // Check if a row already exists for this class+phone (confirmed or cancelled)
   const { data: existing } = await supabase
     .from('registrations')
-    .select('id')
+    .select('id, status')
     .eq('class_id', class_id)
     .eq('phone', phone)
-    .eq('status', 'confirmed')
     .maybeSingle()
 
   if (existing) {
-    return NextResponse.json({ error: 'כבר נרשמת לשיעור זה.' }, { status: 409 })
+    if (existing.status === 'confirmed') {
+      return NextResponse.json({ error: 'כבר נרשמת לשיעור זה.' }, { status: 409 })
+    }
+    // Was cancelled before — re-activate
+    const { data: reactivated, error: reErr } = await supabase
+      .from('registrations')
+      .update({ status: 'confirmed', full_name, registered_at: new Date().toISOString() })
+      .eq('id', existing.id)
+      .select()
+      .single()
+    if (reErr) return NextResponse.json({ error: reErr.message }, { status: 500 })
+    return NextResponse.json(reactivated, { status: 200 })
   }
 
-  // Check capacity
+  // Check capacity (only confirmed count)
   const { count } = await supabase
     .from('registrations')
     .select('*', { count: 'exact', head: true })
     .eq('class_id', class_id)
     .eq('status', 'confirmed')
 
-  const { data: cls } = await supabase
-    .from('classes')
-    .select('max_capacity')
-    .eq('id', class_id)
-    .single()
-
-  if (!cls) return NextResponse.json({ error: 'Class not found' }, { status: 404 })
   if ((count ?? 0) >= cls.max_capacity) {
     return NextResponse.json({ error: 'השיעור מלא' }, { status: 409 })
   }

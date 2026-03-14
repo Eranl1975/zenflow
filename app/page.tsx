@@ -91,9 +91,6 @@ function DashboardContent() {
     fetchUserRegs()
   }
 
-  const upcoming = classes.filter(c => new Date(c.start_time) >= new Date())
-  const past = classes.filter(c => new Date(c.start_time) < new Date())
-
   return (
     <main className="min-h-screen" style={{ backgroundColor: '#FAFAF7' }}>
       <header style={{ backgroundColor: '#E0F2F1' }} className="border-b border-teal-100">
@@ -123,21 +120,22 @@ function DashboardContent() {
 
         <section>
           <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider" style={{ color: '#78909C' }}>
-            Upcoming Classes
+            שיעורים קרובים
           </h2>
 
           {loading ? (
             <div className="space-y-3">
               {[1, 2, 3].map(i => <div key={i} className="h-40 rounded-2xl bg-gray-100 animate-pulse" />)}
             </div>
-          ) : upcoming.length === 0 ? (
+          ) : classes.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-gray-200 p-10 text-center">
               <p className="text-lg">🌿</p>
-              <p className="mt-2 text-sm" style={{ color: '#78909C' }}>No upcoming classes scheduled.</p>
+              <p className="mt-2 text-sm" style={{ color: '#78909C' }}>אין שיעורים מתוכננים כרגע.</p>
+              {isAdmin && <p className="mt-1 text-xs" style={{ color: '#78909C' }}>לחץ &quot;New Class&quot; להוספת שיעור.</p>}
             </div>
           ) : (
             <div className="space-y-3">
-              {upcoming.map(cls => (
+              {classes.map(cls => (
                 <ClassCard
                   key={cls.id}
                   cls={cls}
@@ -151,27 +149,6 @@ function DashboardContent() {
             </div>
           )}
         </section>
-
-        {past.length > 0 && (
-          <section>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider" style={{ color: '#78909C' }}>
-              Past Classes
-            </h2>
-            <div className="space-y-3 opacity-60">
-              {past.slice(-3).map(cls => (
-                <ClassCard
-                  key={cls.id}
-                  cls={cls}
-                  isAdmin={isAdmin}
-                  onDelete={handleDelete}
-                  isRegistered={userRegs.has(cls.id)}
-                  onCancel={handleCancel}
-                  onRegistered={() => { fetchClasses(); fetchUserRegs() }}
-                />
-              ))}
-            </div>
-          </section>
-        )}
       </div>
     </main>
   )
