@@ -6,12 +6,13 @@ import { Class } from '@/lib/supabase'
 interface Props {
   cls: Class
   onClose: () => void
+  onRegistered: () => void
 }
 
 const LS_NAME = 'zenflow_name'
 const LS_PHONE = 'zenflow_phone'
 
-export default function RegistrationModal({ cls, onClose }: Props) {
+export default function RegistrationModal({ cls, onClose, onRegistered }: Props) {
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [loading, setLoading] = useState(false)
@@ -36,14 +37,13 @@ export default function RegistrationModal({ cls, onClose }: Props) {
     })
 
     if (res.ok) {
-      // Save to LocalStorage for next time
       localStorage.setItem(LS_NAME, name.trim())
       localStorage.setItem(LS_PHONE, phone.trim())
       setSuccess(true)
-      setTimeout(onClose, 1800)
+      setTimeout(onRegistered, 1500)
     } else {
       const data = await res.json()
-      setError(data.error ?? 'Registration failed. Please try again.')
+      setError(data.error ?? 'ההרשמה נכשלה. נסה שוב.')
     }
     setLoading(false)
   }
@@ -59,37 +59,37 @@ export default function RegistrationModal({ cls, onClose }: Props) {
             <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-teal-50 text-3xl">
               ✓
             </div>
-            <p className="text-lg font-semibold text-teal-600">You&apos;re registered!</p>
-            <p className="mt-1 text-sm text-slate-500">See you at {cls.title} 🌿</p>
+            <p className="text-lg font-semibold text-teal-600">נרשמת בהצלחה!</p>
+            <p className="mt-1 text-sm text-slate-500">נתראה ב{cls.title} 🌿</p>
           </div>
         ) : (
           <>
             <div className="mb-5">
-              <h2 className="text-xl font-bold text-slate-700">Join Class</h2>
+              <h2 className="text-xl font-bold text-slate-700">הצטרף לשיעור</h2>
               <p className="text-sm text-slate-500">{cls.title}</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-600">Full Name</label>
+                <label className="mb-1 block text-sm font-medium text-slate-600">שם מלא</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   required
-                  placeholder="Your full name"
+                  placeholder="השם שלך"
                   className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100 transition"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-sm font-medium text-slate-600">Phone Number</label>
+                <label className="mb-1 block text-sm font-medium text-slate-600">מספר טלפון</label>
                 <input
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   required
-                  placeholder="+972 50-000-0000"
+                  placeholder="050-0000000"
                   className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100 transition"
                 />
               </div>
@@ -104,14 +104,14 @@ export default function RegistrationModal({ cls, onClose }: Props) {
                   onClick={onClose}
                   className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-semibold text-slate-600 hover:bg-gray-50 transition-colors"
                 >
-                  Cancel
+                  ביטול
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
                   className="flex-1 rounded-xl bg-teal-500 py-3 text-sm font-semibold text-white hover:bg-teal-600 disabled:opacity-60 transition-colors"
                 >
-                  {loading ? 'Registering…' : 'Confirm'}
+                  {loading ? 'רושם...' : 'אישור'}
                 </button>
               </div>
             </form>
