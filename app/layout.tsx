@@ -15,6 +15,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "ZenFlow — Pilates Studio",
   description: "Real-time Pilates class management and registration",
+  icons: {
+    icon: "/pilates-icon.svg",
+    apple: "/pilates-icon.svg",
+  },
 };
 
 export default function RootLayout({
