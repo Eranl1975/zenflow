@@ -12,23 +12,35 @@ function notConfigured() {
   return NextResponse.json({ error: 'Supabase is not configured. See .env.local.example.' }, { status: 503 })
 }
 
-// GET /api/classes — list only future classes with registration counts
+// GET /api/classes — list only future classes with CONFIRMED registration counts
 export async function GET() {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return notConfigured()
   const supabase = serverClient()
 
+  // Fetch future classes
   const { data: classes, error } = await supabase
     .from('classes')
-    .select('*, registrations(count)')
+    .select('*')
     .gte('start_time', new Date().toISOString())
     .order('start_time', { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  // Fetch confirmed-only counts per class
+  const { data: regCounts } = await supabase
+    .from('registrations')
+    .select('class_id')
+    .eq('status', 'confirmed')
+    .in('class_id', classes.map((c: any) => c.id))
+
+  const countMap: Record<string, number> = {}
+  for (const r of regCounts ?? []) {
+    countMap[r.class_id] = (countMap[r.class_id] ?? 0) + 1
+  }
+
   const result = classes.map((c: any) => ({
     ...c,
-    registration_count: c.registrations?.[0]?.count ?? 0,
-    registrations: undefined,
+    registration_count: countMap[c.id] ?? 0,
   }))
 
   return NextResponse.json(result)
