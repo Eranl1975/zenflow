@@ -9,10 +9,11 @@ function serverClient() {
   )
 }
 
-// GET /api/export?class_id=xxx (optional) — download TSV attendance sheet
+// GET /api/export?class_id=xxx&tz=Asia/Jerusalem — download CSV attendance sheet
 export async function GET(req: NextRequest) {
   const supabase = serverClient()
   const classId = req.nextUrl.searchParams.get('class_id')
+  const timezone = req.nextUrl.searchParams.get('tz') ?? 'UTC'
 
   let query = supabase
     .from('registrations')
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
     class_start_time: r.classes?.start_time ?? '',
   }))
 
-  const csv = generateCSV(rows)
+  const csv = generateCSV(rows, timezone)
   const filename = `attendance-${new Date().toISOString().split('T')[0]}.csv`
 
   return new NextResponse(csv, {

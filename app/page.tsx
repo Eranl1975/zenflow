@@ -103,12 +103,15 @@ function DashboardContent() {
             {isAdmin && (
               <div className="flex items-center gap-2">
                 <span className="rounded-full bg-teal-600 px-3 py-1 text-xs font-semibold text-white">Admin</span>
-                <a
-                  href="/api/export"
+                <button
+                  onClick={() => {
+                    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+                    window.location.href = `/api/export?tz=${encodeURIComponent(tz)}`
+                  }}
                   className="rounded-xl border border-teal-300 bg-white px-4 py-2 text-sm font-semibold text-teal-700 hover:bg-teal-50 transition-colors"
                 >
                   Export CSV
-                </a>
+                </button>
               </div>
             )}
           </div>
