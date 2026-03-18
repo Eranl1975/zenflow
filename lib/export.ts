@@ -34,6 +34,5 @@ export function generateCSV(
     return [classDate, classTime, r.full_name, r.phone, r.status, registeredAt].map(csvField).join(',')
   })
 
-  // UTF-8 BOM (\uFEFF) ensures Excel/Numbers recognise Hebrew and other non-ASCII text correctly
-  return '\uFEFF' + [header, ...rows].join('\n')
+  return [header, ...rows].join('\r\n')
 }

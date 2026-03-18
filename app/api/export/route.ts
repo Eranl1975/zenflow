@@ -29,15 +29,27 @@ export async function GET(req: NextRequest) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  const rows = (data ?? []).map((r: any) => ({
-    ...r,
-    class_start_time: r.classes?.start_time ?? '',
-  }))
+  const now = new Date().toISOString()
 
-  const csv = generateCSV(rows, timezone)
+  // Only include registrations for upcoming/current classes (same logic as the UI)
+  const rows = (data ?? [])
+    .filter((r: any) => (r.classes?.start_time ?? '') >= now)
+    .map((r: any) => ({
+      ...r,
+      class_start_time: r.classes?.start_time ?? '',
+    }))
+
+  const csvContent = generateCSV(rows, timezone)
   const filename = `attendance-${new Date().toISOString().split('T')[0]}.csv`
 
-  return new NextResponse(csv, {
+  // Prepend UTF-8 BOM as explicit bytes (0xEF 0xBB 0xBF) so Google Sheets,
+  // Excel and Numbers all display Hebrew and non-ASCII characters correctly
+  const body = Buffer.concat([
+    Buffer.from([0xef, 0xbb, 0xbf]),
+    Buffer.from(csvContent, 'utf8'),
+  ])
+
+  return new NextResponse(body, {
     headers: {
       'Content-Type': 'text/csv; charset=utf-8',
       'Content-Disposition': `attachment; filename="${filename}"`,
