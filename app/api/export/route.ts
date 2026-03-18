@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { generateTSV } from '@/lib/export'
+import { generateCSV } from '@/lib/export'
 
 function serverClient() {
   return createClient(
@@ -33,12 +33,12 @@ export async function GET(req: NextRequest) {
     class_start_time: r.classes?.start_time ?? '',
   }))
 
-  const tsv = generateTSV(rows)
-  const filename = `attendance-${new Date().toISOString().split('T')[0]}.tsv`
+  const csv = generateCSV(rows)
+  const filename = `attendance-${new Date().toISOString().split('T')[0]}.csv`
 
-  return new NextResponse(tsv, {
+  return new NextResponse(csv, {
     headers: {
-      'Content-Type': 'text/tab-separated-values; charset=utf-8',
+      'Content-Type': 'text/csv; charset=utf-8',
       'Content-Disposition': `attachment; filename="${filename}"`,
     },
   })

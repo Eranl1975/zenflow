@@ -107,7 +107,7 @@ function DashboardContent() {
                   href="/api/export"
                   className="rounded-xl border border-teal-300 bg-white px-4 py-2 text-sm font-semibold text-teal-700 hover:bg-teal-50 transition-colors"
                 >
-                  Export TSV
+                  Export CSV
                 </a>
               </div>
             )}
