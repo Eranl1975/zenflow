@@ -101,7 +101,7 @@ function DashboardContent() {
               <p className="text-sm" style={{ color: '#78909C' }}>Pilates Studio Schedule</p>
             </div>
             {isAdmin && (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap justify-end">
                 <span className="rounded-full bg-teal-600 px-3 py-1 text-xs font-semibold text-white">Admin</span>
                 <button
                   onClick={() => {
@@ -111,6 +111,16 @@ function DashboardContent() {
                   className="rounded-xl border border-teal-300 bg-white px-4 py-2 text-sm font-semibold text-teal-700 hover:bg-teal-50 transition-colors"
                 >
                   Export CSV
+                </button>
+                <button
+                  onClick={() => {
+                    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+                    window.location.href = `/api/export?history=true&tz=${encodeURIComponent(tz)}`
+                  }}
+                  className="rounded-xl border border-teal-200 bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 transition-colors"
+                  title="הורדת כל היסטוריית הרישומים כקובץ Excel (CSV)"
+                >
+                  📥 היסטוריית רישומים
                 </button>
               </div>
             )}

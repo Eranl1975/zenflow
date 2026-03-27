@@ -9,15 +9,16 @@ function serverClient() {
   )
 }
 
-// GET /api/export?class_id=xxx&tz=Asia/Jerusalem — download CSV attendance sheet
+// GET /api/export?class_id=xxx&tz=Asia/Jerusalem&history=true — download CSV attendance sheet
 export async function GET(req: NextRequest) {
   const supabase = serverClient()
   const classId = req.nextUrl.searchParams.get('class_id')
   const timezone = req.nextUrl.searchParams.get('tz') ?? 'UTC'
+  const history = req.nextUrl.searchParams.get('history') === 'true'
 
   let query = supabase
     .from('registrations')
-    .select('*, classes(start_time, title)')
+    .select('*, classes(start_time, title, instructor)')
     .eq('status', 'confirmed')
     .order('registered_at', { ascending: true })
 
@@ -31,16 +32,24 @@ export async function GET(req: NextRequest) {
 
   const now = new Date().toISOString()
 
-  // Only include registrations for upcoming/current classes (same logic as the UI)
   const rows = (data ?? [])
-    .filter((r: any) => (r.classes?.start_time ?? '') >= now)
+    .filter((r: any) => history || (r.classes?.start_time ?? '') >= now)
     .map((r: any) => ({
       ...r,
       class_start_time: r.classes?.start_time ?? '',
+      class_title: r.classes?.title ?? '',
+      class_instructor: r.classes?.instructor ?? '',
     }))
+    // For history: sort by class date descending (most recent first)
+    .sort((a: any, b: any) =>
+      history
+        ? b.class_start_time.localeCompare(a.class_start_time)
+        : a.class_start_time.localeCompare(b.class_start_time)
+    )
 
-  const csvContent = generateCSV(rows, timezone)
-  const filename = `attendance-${new Date().toISOString().split('T')[0]}.csv`
+  const csvContent = generateCSV(rows, timezone, history)
+  const today = new Date().toISOString().split('T')[0]
+  const filename = history ? `history-all-registrations-${today}.csv` : `attendance-${today}.csv`
 
   // Prepend UTF-8 BOM as explicit bytes (0xEF 0xBB 0xBF) so Google Sheets,
   // Excel and Numbers all display Hebrew and non-ASCII characters correctly

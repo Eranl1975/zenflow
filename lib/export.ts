@@ -2,7 +2,7 @@ import { Registration } from './supabase'
 
 function csvField(value: string): string {
   // Wrap in quotes if value contains comma, quote, or newline
-  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+  if (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes(';')) {
     return `"${value.replace(/"/g, '""')}"`
   }
   return value
@@ -17,10 +17,13 @@ function formatInTz(isoString: string, timezone: string, opts: Intl.DateTimeForm
 }
 
 export function generateCSV(
-  registrations: (Registration & { class_start_time: string })[],
-  timezone = 'UTC'
+  registrations: (Registration & { class_start_time: string; class_title?: string; class_instructor?: string })[],
+  timezone = 'UTC',
+  includeClassDetails = false
 ) {
-  const header = 'Class_Date,Class_Time,Participant_Name,Phone_Number,Registration_Status,Registered_At'
+  const header = includeClassDetails
+    ? 'Class_Name,Instructor,Class_Date,Class_Time,Participant_Name,Phone_Number,Registration_Status,Registered_At'
+    : 'Class_Date,Class_Time,Participant_Name,Phone_Number,Registration_Status,Registered_At'
 
   const rows: string[] = registrations.map((r) => {
     const classDate = formatInTz(r.class_start_time, timezone, { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -31,6 +34,20 @@ export function generateCSV(
           hour: '2-digit', minute: '2-digit', hour12: false,
         })
       : ''
+
+    if (includeClassDetails) {
+      return [
+        r.class_title ?? '',
+        r.class_instructor ?? '',
+        classDate,
+        classTime,
+        r.full_name,
+        r.phone,
+        r.status,
+        registeredAt,
+      ].map(csvField).join(',')
+    }
+
     return [classDate, classTime, r.full_name, r.phone, r.status, registeredAt].map(csvField).join(',')
   })
 
