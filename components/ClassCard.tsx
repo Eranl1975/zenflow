@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Class } from '@/lib/supabase'
 import RegistrationModal from './RegistrationModal'
 
@@ -29,10 +29,35 @@ function isLowAttendance(cls: Class): boolean {
 
 export default function ClassCard({ cls, isAdmin, isRegistered, onDelete, onCancel, onRegistered }: ClassCardProps) {
   const [showModal, setShowModal] = useState(false)
+  const [showCancelForm, setShowCancelForm] = useState(false)
+  const [cancelPhone, setCancelPhone] = useState('')
+  const [cancelLoading, setCancelLoading] = useState(false)
+  const [cancelError, setCancelError] = useState('')
+  const cancelInputRef = useRef<HTMLInputElement>(null)
   const count = cls.registration_count ?? 0
   const isFull = count >= cls.max_capacity
   const low = isLowAttendance(cls)
   const isPast = new Date(cls.start_time) < new Date()
+
+  async function handleCancelByPhone(e: React.FormEvent) {
+    e.preventDefault()
+    setCancelError('')
+    setCancelLoading(true)
+    const res = await fetch(
+      `/api/registrations?class_id=${cls.id}&phone=${encodeURIComponent(cancelPhone.trim())}`,
+      { method: 'DELETE' }
+    )
+    if (res.ok) {
+      localStorage.setItem('zenflow_phone', cancelPhone.trim())
+      setShowCancelForm(false)
+      setCancelPhone('')
+      onRegistered()
+    } else {
+      const data = await res.json()
+      setCancelError(data.error ?? 'הביטול נכשל. בדוק את מספר הטלפון.')
+    }
+    setCancelLoading(false)
+  }
 
   return (
     <>
@@ -87,34 +112,79 @@ export default function ClassCard({ cls, isAdmin, isRegistered, onDelete, onCanc
 
         {/* Actions */}
         {!isPast && (
-          <div className="mt-4 flex gap-2">
-            {isRegistered ? (
-              <button
-                onClick={() => onCancel(cls.id)}
-                className="flex-1 rounded-xl border border-rose-200 py-2.5 text-sm font-semibold text-rose-500 hover:bg-rose-50 transition-colors"
-              >
-                ביטול הרשמה
-              </button>
-            ) : (
-              <button
-                onClick={() => setShowModal(true)}
-                disabled={isFull}
-                className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition-colors ${
-                  isFull
-                    ? 'cursor-not-allowed bg-gray-100 text-gray-400'
-                    : 'bg-teal-500 text-white hover:bg-teal-600 active:bg-teal-700'
-                }`}
-              >
-                {isFull ? 'Class Full' : 'Join Class'}
-              </button>
-            )}
-            {isAdmin && (
-              <button
-                onClick={() => onDelete(cls.id)}
-                className="rounded-xl border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-500 hover:bg-rose-50 transition-colors"
-              >
-                Delete
-              </button>
+          <div className="mt-4">
+            <div className="flex gap-2">
+              {isRegistered ? (
+                <button
+                  onClick={() => onCancel(cls.id)}
+                  className="flex-1 rounded-xl border border-rose-200 py-2.5 text-sm font-semibold text-rose-500 hover:bg-rose-50 transition-colors"
+                >
+                  ביטול הרשמה
+                </button>
+              ) : (
+                <button
+                  onClick={() => setShowModal(true)}
+                  disabled={isFull}
+                  className={`flex-1 rounded-xl py-2.5 text-sm font-semibold transition-colors ${
+                    isFull
+                      ? 'cursor-not-allowed bg-gray-100 text-gray-400'
+                      : 'bg-teal-500 text-white hover:bg-teal-600 active:bg-teal-700'
+                  }`}
+                >
+                  {isFull ? 'Class Full' : 'Join Class'}
+                </button>
+              )}
+              {isAdmin && (
+                <button
+                  onClick={() => onDelete(cls.id)}
+                  className="rounded-xl border border-rose-200 px-4 py-2.5 text-sm font-semibold text-rose-500 hover:bg-rose-50 transition-colors"
+                >
+                  Delete
+                </button>
+              )}
+            </div>
+
+            {/* Cancel-by-phone: shown when class is full and user is not identified */}
+            {isFull && !isRegistered && (
+              <div className="mt-2">
+                {!showCancelForm ? (
+                  <button
+                    onClick={() => { setShowCancelForm(true); setTimeout(() => cancelInputRef.current?.focus(), 50) }}
+                    className="text-xs text-slate-400 hover:text-rose-500 transition-colors underline underline-offset-2"
+                  >
+                    יש לך הרשמה? בטל כאן
+                  </button>
+                ) : (
+                  <form onSubmit={handleCancelByPhone} className="flex gap-2">
+                    <input
+                      ref={cancelInputRef}
+                      type="tel"
+                      value={cancelPhone}
+                      onChange={e => setCancelPhone(e.target.value)}
+                      required
+                      placeholder="מספר טלפון רשום"
+                      className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-rose-300 focus:ring-2 focus:ring-rose-100 transition"
+                    />
+                    <button
+                      type="submit"
+                      disabled={cancelLoading}
+                      className="rounded-xl bg-rose-100 px-3 py-2 text-sm font-semibold text-rose-600 hover:bg-rose-200 disabled:opacity-60 transition-colors"
+                    >
+                      {cancelLoading ? '...' : 'בטל'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowCancelForm(false); setCancelError(''); setCancelPhone('') }}
+                      className="rounded-xl border border-gray-200 px-3 py-2 text-sm text-slate-400 hover:bg-gray-50 transition-colors"
+                    >
+                      ✕
+                    </button>
+                  </form>
+                )}
+                {cancelError && (
+                  <p className="mt-1 text-xs text-rose-500">{cancelError}</p>
+                )}
+              </div>
             )}
           </div>
         )}

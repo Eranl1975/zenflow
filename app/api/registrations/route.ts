@@ -112,11 +112,17 @@ export async function DELETE(req: NextRequest) {
   if (id) {
     ;({ error } = await supabase.from('registrations').update({ status: 'cancelled' }).eq('id', id))
   } else if (classId && phone) {
-    ;({ error } = await supabase
+    const { data: updated, error: updateErr } = await supabase
       .from('registrations')
       .update({ status: 'cancelled' })
       .eq('class_id', classId)
-      .eq('phone', phone))
+      .eq('phone', phone)
+      .eq('status', 'confirmed')
+      .select()
+    error = updateErr
+    if (!updateErr && (!updated || updated.length === 0)) {
+      return NextResponse.json({ error: 'לא נמצאה הרשמה פעילה עבור מספר זה.' }, { status: 404 })
+    }
   } else {
     return NextResponse.json({ error: 'id or class_id+phone required' }, { status: 400 })
   }
