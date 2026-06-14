@@ -144,8 +144,8 @@ export default function ClassCard({ cls, isAdmin, isRegistered, onDelete, onCanc
               )}
             </div>
 
-            {/* Cancel-by-phone: shown when class is full and user is not identified */}
-            {isFull && !isRegistered && (
+            {/* Cancel-by-phone: shown when class is full and user is not identified (not for admins) */}
+            {isFull && !isRegistered && !isAdmin && (
               <div className="mt-2">
                 {!showCancelForm ? (
                   <button
