@@ -40,8 +40,6 @@ function DashboardContent() {
   const [classes, setClasses] = useState<Class[]>([])
   const [loading, setLoading] = useState(true)
   const [userRegs, setUserRegs] = useState<Map<string, string>>(new Map())
-
-  const [authChecked, setAuthChecked] = useState(false)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
 
   const fetchClasses = useCallback(async () => {
@@ -62,63 +60,8 @@ function DashboardContent() {
     }
   }, [])
 
-  // Auth initialization
+  // Classes + Realtime — starts immediately, no auth gate
   useEffect(() => {
-    // Admin mode: no auth check needed — unblock immediately
-    if (isAdmin) {
-      setAuthChecked(true)
-      return
-    }
-
-    const client = getSupabaseClient()
-    if (!client) {
-      setAuthChecked(true)
-      return
-    }
-
-    async function initAuth() {
-      const { data: { session } } = await client!.auth.getSession()
-      if (!session?.user) {
-        router.replace('/login')
-        return
-      }
-      // Unblock the UI right after getSession (fast — reads localStorage)
-      setAuthChecked(true)
-      // Load profile in the background (doesn't block class rendering)
-      const profile = await getUserProfile(session.user.id)
-      if (profile) {
-        setUserProfile(profile)
-        localStorage.setItem('zenflow_phone', profile.phone)
-        if (profile.display_name) localStorage.setItem('zenflow_name', profile.display_name)
-        fetchUserRegs()
-      } else {
-        router.replace('/login')
-      }
-    }
-
-    initAuth()
-
-    const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_OUT') {
-        setUserProfile(null)
-        setUserRegs(new Map())
-        router.replace('/login')
-      } else if (session?.user) {
-        const profile = await getUserProfile(session.user.id)
-        if (profile) {
-          setUserProfile(profile)
-          localStorage.setItem('zenflow_phone', profile.phone)
-          fetchUserRegs()
-        }
-      }
-    })
-
-    return () => { subscription.unsubscribe() }
-  }, [router, isAdmin, fetchUserRegs])
-
-  // Data fetching + Realtime (runs after auth check completes)
-  useEffect(() => {
-    if (!authChecked) return
     fetchClasses()
     fetchUserRegs()
 
@@ -135,7 +78,51 @@ function DashboardContent() {
       .subscribe()
 
     return () => { client.removeChannel(channel) }
-  }, [authChecked, fetchClasses, fetchUserRegs])
+  }, [fetchClasses, fetchUserRegs])
+
+  // Auth check — runs in background, never blocks content rendering
+  useEffect(() => {
+    if (isAdmin) return // Admin: no auth needed
+
+    const client = getSupabaseClient()
+    if (!client) return
+
+    async function initAuth() {
+      const { data: { session } } = await client!.auth.getSession()
+      if (!session?.user) {
+        router.replace('/login')
+        return
+      }
+      const profile = await getUserProfile(session.user.id)
+      if (!profile) {
+        router.replace('/login')
+        return
+      }
+      setUserProfile(profile)
+      localStorage.setItem('zenflow_phone', profile.phone)
+      if (profile.display_name) localStorage.setItem('zenflow_name', profile.display_name)
+      fetchUserRegs()
+    }
+
+    initAuth()
+
+    const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setUserProfile(null)
+        setUserRegs(new Map())
+        router.replace('/login')
+      } else if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session?.user) {
+        const profile = await getUserProfile(session.user.id)
+        if (profile) {
+          setUserProfile(profile)
+          localStorage.setItem('zenflow_phone', profile.phone)
+          fetchUserRegs()
+        }
+      }
+    })
+
+    return () => { subscription.unsubscribe() }
+  }, [router, isAdmin, fetchUserRegs])
 
   async function handleDelete(id: string) {
     if (!confirm('Delete this class? All registrations will be removed.')) return
@@ -154,15 +141,7 @@ function DashboardContent() {
 
   async function handleSignOut() {
     await doSignOut()
-    // onAuthStateChange SIGNED_OUT will handle redirect
-  }
-
-  if (!authChecked) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#FAFAF7' }}>
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-teal-500 border-t-transparent" />
-      </div>
-    )
+    // onAuthStateChange SIGNED_OUT handles redirect
   }
 
   return (
@@ -271,7 +250,7 @@ function DashboardContent() {
 export default function Home() {
   if (!isSupabaseConfigured()) return <SetupBanner />
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-teal-600">Loading…</div>}>
+    <Suspense fallback={null}>
       <DashboardContent />
     </Suspense>
   )
