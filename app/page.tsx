@@ -64,6 +64,12 @@ function DashboardContent() {
 
   // Auth initialization
   useEffect(() => {
+    // Admin mode: no auth check needed — unblock immediately
+    if (isAdmin) {
+      setAuthChecked(true)
+      return
+    }
+
     const client = getSupabaseClient()
     if (!client) {
       setAuthChecked(true)
@@ -72,22 +78,22 @@ function DashboardContent() {
 
     async function initAuth() {
       const { data: { session } } = await client!.auth.getSession()
-      if (session?.user) {
-        const profile = await getUserProfile(session.user.id)
-        if (profile) {
-          setUserProfile(profile)
-          localStorage.setItem('zenflow_phone', profile.phone)
-          if (profile.display_name) localStorage.setItem('zenflow_name', profile.display_name)
-        } else if (!isAdmin) {
-          // Session exists but no profile — inconsistent state, re-login
-          router.replace('/login')
-          return
-        }
-      } else if (!isAdmin) {
+      if (!session?.user) {
         router.replace('/login')
         return
       }
+      // Unblock the UI right after getSession (fast — reads localStorage)
       setAuthChecked(true)
+      // Load profile in the background (doesn't block class rendering)
+      const profile = await getUserProfile(session.user.id)
+      if (profile) {
+        setUserProfile(profile)
+        localStorage.setItem('zenflow_phone', profile.phone)
+        if (profile.display_name) localStorage.setItem('zenflow_name', profile.display_name)
+        fetchUserRegs()
+      } else {
+        router.replace('/login')
+      }
     }
 
     initAuth()
