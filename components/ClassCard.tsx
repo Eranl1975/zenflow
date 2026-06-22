@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { Class } from '@/lib/supabase'
+import { Class, UserProfile } from '@/lib/supabase'
 import RegistrationModal from './RegistrationModal'
 
 interface ClassCardProps {
@@ -11,6 +11,7 @@ interface ClassCardProps {
   onDelete: (id: string) => void
   onCancel: (classId: string) => void
   onRegistered: () => void
+  userProfile?: UserProfile | null
 }
 
 function formatTime(iso: string) {
@@ -27,7 +28,7 @@ function isLowAttendance(cls: Class): boolean {
   return count < cls.min_threshold && hoursUntil <= 12 && hoursUntil > 0
 }
 
-export default function ClassCard({ cls, isAdmin, isRegistered, onDelete, onCancel, onRegistered }: ClassCardProps) {
+export default function ClassCard({ cls, isAdmin, isRegistered, onDelete, onCancel, onRegistered, userProfile }: ClassCardProps) {
   const [showModal, setShowModal] = useState(false)
   const [showCancelForm, setShowCancelForm] = useState(false)
   const [cancelPhone, setCancelPhone] = useState('')
@@ -203,6 +204,7 @@ export default function ClassCard({ cls, isAdmin, isRegistered, onDelete, onCanc
           cls={cls}
           onClose={() => setShowModal(false)}
           onRegistered={() => { setShowModal(false); onRegistered() }}
+          userProfile={userProfile}
         />
       )}
     </>

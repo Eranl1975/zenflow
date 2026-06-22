@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState, useCallback, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { getSupabaseClient, isSupabaseConfigured, Class } from '@/lib/supabase'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { getSupabaseClient, isSupabaseConfigured, Class, UserProfile } from '@/lib/supabase'
+import { getUserProfile, doSignOut } from '@/lib/auth'
 import ClassCard from '@/components/ClassCard'
 import CreateClassForm from '@/components/CreateClassForm'
 
@@ -32,12 +33,16 @@ function SetupBanner() {
 }
 
 function DashboardContent() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const isAdmin = searchParams.get('admin') === ADMIN_SECRET
+
   const [classes, setClasses] = useState<Class[]>([])
   const [loading, setLoading] = useState(true)
-  // Map of class_id → registration_id for the current user
   const [userRegs, setUserRegs] = useState<Map<string, string>>(new Map())
+
+  const [authChecked, setAuthChecked] = useState(false)
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
 
   const fetchClasses = useCallback(async () => {
     const res = await fetch('/api/classes')
@@ -57,7 +62,57 @@ function DashboardContent() {
     }
   }, [])
 
+  // Auth initialization
   useEffect(() => {
+    const client = getSupabaseClient()
+    if (!client) {
+      setAuthChecked(true)
+      return
+    }
+
+    async function initAuth() {
+      const { data: { session } } = await client!.auth.getSession()
+      if (session?.user) {
+        const profile = await getUserProfile(session.user.id)
+        if (profile) {
+          setUserProfile(profile)
+          localStorage.setItem('zenflow_phone', profile.phone)
+          if (profile.display_name) localStorage.setItem('zenflow_name', profile.display_name)
+        } else if (!isAdmin) {
+          // Session exists but no profile — inconsistent state, re-login
+          router.replace('/login')
+          return
+        }
+      } else if (!isAdmin) {
+        router.replace('/login')
+        return
+      }
+      setAuthChecked(true)
+    }
+
+    initAuth()
+
+    const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setUserProfile(null)
+        setUserRegs(new Map())
+        router.replace('/login')
+      } else if (session?.user) {
+        const profile = await getUserProfile(session.user.id)
+        if (profile) {
+          setUserProfile(profile)
+          localStorage.setItem('zenflow_phone', profile.phone)
+          fetchUserRegs()
+        }
+      }
+    })
+
+    return () => { subscription.unsubscribe() }
+  }, [router, isAdmin, fetchUserRegs])
+
+  // Data fetching + Realtime (runs after auth check completes)
+  useEffect(() => {
+    if (!authChecked) return
     fetchClasses()
     fetchUserRegs()
 
@@ -74,7 +129,7 @@ function DashboardContent() {
       .subscribe()
 
     return () => { client.removeChannel(channel) }
-  }, [fetchClasses, fetchUserRegs])
+  }, [authChecked, fetchClasses, fetchUserRegs])
 
   async function handleDelete(id: string) {
     if (!confirm('Delete this class? All registrations will be removed.')) return
@@ -91,39 +146,78 @@ function DashboardContent() {
     fetchUserRegs()
   }
 
+  async function handleSignOut() {
+    await doSignOut()
+    // onAuthStateChange SIGNED_OUT will handle redirect
+  }
+
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#FAFAF7' }}>
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-teal-500 border-t-transparent" />
+      </div>
+    )
+  }
+
   return (
     <main className="min-h-screen" style={{ backgroundColor: '#FAFAF7' }}>
       <header style={{ backgroundColor: '#E0F2F1' }} className="border-b border-teal-100">
         <div className="mx-auto max-w-2xl px-4 py-6">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold" style={{ color: '#455A64' }}>ZenFlow 🌿</h1>
-              <p className="text-sm" style={{ color: '#78909C' }}>Pilates Studio Schedule</p>
+              {userProfile ? (
+                <p className="text-sm font-medium" style={{ color: '#78909C' }}>
+                  שלום, {userProfile.display_name || userProfile.email}
+                </p>
+              ) : (
+                <p className="text-sm" style={{ color: '#78909C' }}>Pilates Studio Schedule</p>
+              )}
             </div>
-            {isAdmin && (
-              <div className="flex items-center gap-2 flex-wrap justify-end">
-                <span className="rounded-full bg-teal-600 px-3 py-1 text-xs font-semibold text-white">Admin</span>
-                <button
-                  onClick={() => {
-                    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
-                    window.location.href = `/api/export?tz=${encodeURIComponent(tz)}`
-                  }}
-                  className="rounded-xl border border-teal-300 bg-white px-4 py-2 text-sm font-semibold text-teal-700 hover:bg-teal-50 transition-colors"
-                >
-                  Export CSV
-                </button>
-                <button
-                  onClick={() => {
-                    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
-                    window.location.href = `/api/export?history=true&tz=${encodeURIComponent(tz)}`
-                  }}
-                  className="rounded-xl border border-teal-200 bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 transition-colors"
-                  title="הורדת כל היסטוריית הרישומים כקובץ Excel (CSV)"
-                >
-                  📥 היסטוריית רישומים
-                </button>
-              </div>
-            )}
+
+            <div className="flex items-center gap-2 flex-wrap justify-end">
+              {isAdmin && (
+                <>
+                  <span className="rounded-full bg-teal-600 px-3 py-1 text-xs font-semibold text-white">Admin</span>
+                  <button
+                    onClick={() => {
+                      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+                      window.location.href = `/api/export?tz=${encodeURIComponent(tz)}`
+                    }}
+                    className="rounded-xl border border-teal-300 bg-white px-4 py-2 text-sm font-semibold text-teal-700 hover:bg-teal-50 transition-colors"
+                  >
+                    Export CSV
+                  </button>
+                  <button
+                    onClick={() => {
+                      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+                      window.location.href = `/api/export?history=true&tz=${encodeURIComponent(tz)}`
+                    }}
+                    className="rounded-xl border border-teal-200 bg-teal-600 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-700 transition-colors"
+                    title="הורדת כל היסטוריית הרישומים כקובץ Excel (CSV)"
+                  >
+                    📥 היסטוריית רישומים
+                  </button>
+                </>
+              )}
+
+              {userProfile && (
+                <>
+                  <button
+                    onClick={() => router.push('/history')}
+                    className="rounded-xl border border-teal-300 bg-white px-4 py-2 text-sm font-semibold text-teal-700 hover:bg-teal-50 transition-colors"
+                  >
+                    📋 ההיסטוריה שלי
+                  </button>
+                  <button
+                    onClick={handleSignOut}
+                    className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-slate-500 hover:bg-gray-50 transition-colors"
+                  >
+                    יציאה
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -157,6 +251,7 @@ function DashboardContent() {
                   isRegistered={userRegs.has(cls.id)}
                   onCancel={handleCancel}
                   onRegistered={() => { fetchClasses(); fetchUserRegs() }}
+                  userProfile={userProfile}
                 />
               ))}
             </div>

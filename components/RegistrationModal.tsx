@@ -1,38 +1,51 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Class } from '@/lib/supabase'
+import { Class, UserProfile } from '@/lib/supabase'
+import { getSession } from '@/lib/auth'
 
 interface Props {
   cls: Class
   onClose: () => void
   onRegistered: () => void
+  userProfile?: UserProfile | null
 }
 
 const LS_NAME = 'zenflow_name'
 const LS_PHONE = 'zenflow_phone'
 
-export default function RegistrationModal({ cls, onClose, onRegistered }: Props) {
+export default function RegistrationModal({ cls, onClose, onRegistered, userProfile }: Props) {
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
 
-  // Smart memory: pre-fill from LocalStorage
+  // Pre-fill from profile if logged in, otherwise fall back to LocalStorage
   useEffect(() => {
-    setName(localStorage.getItem(LS_NAME) ?? '')
-    setPhone(localStorage.getItem(LS_PHONE) ?? '')
-  }, [])
+    if (userProfile) {
+      setName(userProfile.display_name ?? localStorage.getItem(LS_NAME) ?? '')
+      setPhone(userProfile.phone)
+    } else {
+      setName(localStorage.getItem(LS_NAME) ?? '')
+      setPhone(localStorage.getItem(LS_PHONE) ?? '')
+    }
+  }, [userProfile])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
     setLoading(true)
 
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    const session = await getSession()
+    if (session?.access_token) {
+      headers['Authorization'] = `Bearer ${session.access_token}`
+    }
+
     const res = await fetch('/api/registrations', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ class_id: cls.id, full_name: name.trim(), phone: phone.trim() }),
     })
 
@@ -47,6 +60,8 @@ export default function RegistrationModal({ cls, onClose, onRegistered }: Props)
     }
     setLoading(false)
   }
+
+  const phoneReadOnly = !!userProfile
 
   return (
     <div
@@ -87,10 +102,15 @@ export default function RegistrationModal({ cls, onClose, onRegistered }: Props)
                 <input
                   type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={phoneReadOnly ? undefined : (e) => setPhone(e.target.value)}
                   required
+                  readOnly={phoneReadOnly}
                   placeholder="050-0000000"
-                  className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100 transition"
+                  className={`w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none transition ${
+                    phoneReadOnly
+                      ? 'bg-gray-50 text-slate-500 cursor-default'
+                      : 'focus:border-teal-400 focus:ring-2 focus:ring-teal-100'
+                  }`}
                 />
               </div>
 

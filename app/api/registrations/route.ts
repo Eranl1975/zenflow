@@ -41,6 +41,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'class_id, full_name, and phone are required' }, { status: 400 })
   }
 
+  // Resolve user_id from Bearer token if present (links registration to account)
+  let userId: string | null = null
+  const authHeader = req.headers.get('authorization')
+  if (authHeader?.startsWith('Bearer ')) {
+    const { data: { user } } = await supabase.auth.getUser(authHeader.slice(7))
+    if (user) userId = user.id
+  }
+
   // Check class exists and hasn't started yet
   const { data: cls } = await supabase
     .from('classes')
@@ -65,10 +73,16 @@ export async function POST(req: NextRequest) {
     if (existing.status === 'confirmed') {
       return NextResponse.json({ error: 'כבר נרשמת לשיעור זה.' }, { status: 409 })
     }
-    // Was cancelled before — re-activate
+    // Was cancelled before — re-activate (also set user_id if now authenticated)
+    const reactivateFields: Record<string, unknown> = {
+      status: 'confirmed',
+      full_name,
+      registered_at: new Date().toISOString(),
+    }
+    if (userId) reactivateFields.user_id = userId
     const { data: reactivated, error: reErr } = await supabase
       .from('registrations')
-      .update({ status: 'confirmed', full_name, registered_at: new Date().toISOString() })
+      .update(reactivateFields)
       .eq('id', existing.id)
       .select()
       .single()
@@ -87,9 +101,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'השיעור מלא' }, { status: 409 })
   }
 
+  const insertData: Record<string, unknown> = { class_id, full_name, phone, status: 'confirmed' }
+  if (userId) insertData.user_id = userId
+
   const { data, error } = await supabase
     .from('registrations')
-    .insert({ class_id, full_name, phone, status: 'confirmed' })
+    .insert(insertData)
     .select()
     .single()
 
