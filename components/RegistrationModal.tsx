@@ -37,28 +37,33 @@ export default function RegistrationModal({ cls, onClose, onRegistered, userProf
     setError('')
     setLoading(true)
 
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    const session = await getSession()
-    if (session?.access_token) {
-      headers['Authorization'] = `Bearer ${session.access_token}`
-    }
+    try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      const session = await getSession()
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+      }
 
-    const res = await fetch('/api/registrations', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ class_id: cls.id, full_name: name.trim(), phone: phone.trim() }),
-    })
+      const res = await fetch('/api/registrations', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ class_id: cls.id, full_name: name.trim(), phone: phone.trim() }),
+      })
 
-    if (res.ok) {
-      localStorage.setItem(LS_NAME, name.trim())
-      localStorage.setItem(LS_PHONE, phone.trim())
-      setSuccess(true)
-      setTimeout(onRegistered, 1500)
-    } else {
-      const data = await res.json()
-      setError(data.error ?? 'ההרשמה נכשלה. נסה שוב.')
+      if (res.ok) {
+        localStorage.setItem(LS_NAME, name.trim())
+        localStorage.setItem(LS_PHONE, phone.trim())
+        setSuccess(true)
+        setTimeout(onRegistered, 1500)
+      } else {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error ?? 'ההרשמה נכשלה. נסה שוב.')
+      }
+    } catch {
+      setError('שגיאת רשת. נסה שוב.')
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const phoneReadOnly = !!userProfile
