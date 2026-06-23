@@ -72,11 +72,12 @@ export async function signUp(
   return { data, error: null }
 }
 
-/** Signs the current user out and clears localStorage phone/name keys. */
+/** Signs the current user out and clears localStorage/sessionStorage auth keys. */
 export async function doSignOut() {
   if (typeof window !== 'undefined') {
     localStorage.removeItem('zenflow_phone')
     localStorage.removeItem('zenflow_name')
+    sessionStorage.removeItem('zf_session')
   }
   const supabase = getSupabaseClient()
   if (!supabase) return

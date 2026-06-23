@@ -30,6 +30,8 @@ export default function LoginPage() {
       setLoading(false)
       return
     }
+    // Mark this window/tab as authenticated (sessionStorage clears on close)
+    sessionStorage.setItem('zf_session', '1')
     // Backfill historical registrations by phone
     await backfillRegistrations(data.session.access_token)
     router.replace('/')
@@ -54,6 +56,8 @@ export default function LoginPage() {
       setLoading(false)
       return
     }
+    // Mark this window/tab as authenticated (sessionStorage clears on close)
+    sessionStorage.setItem('zf_session', '1')
     // Backfill historical registrations after signup
     const session = (data as any)?.session
     if (session?.access_token) {

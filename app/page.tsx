@@ -89,11 +89,18 @@ function DashboardContent() {
     if (!client) { setAuthChecked(true); return }
 
     async function initAuth() {
+      // sessionStorage is cleared when the window/tab closes.
+      // Require the flag set by the login page → forces login on every fresh open.
+      if (!sessionStorage.getItem('zf_session')) {
+        router.replace('/login')
+        return
+      }
       try {
         const { data: { session } } = await client!.auth.getSession()
         if (!session?.user) {
+          sessionStorage.removeItem('zf_session')
           router.replace('/login')
-          return // authChecked stays false → skeleton shows until navigation
+          return
         }
         const profile = await getUserProfile(session.user.id)
         if (profile) {
@@ -101,11 +108,13 @@ function DashboardContent() {
           localStorage.setItem('zenflow_phone', profile.phone)
           if (profile.display_name) localStorage.setItem('zenflow_name', profile.display_name)
           fetchUserRegs()
-          setAuthChecked(true) // reveal page only when confirmed authenticated
+          setAuthChecked(true)
         } else {
+          sessionStorage.removeItem('zf_session')
           router.replace('/login')
         }
       } catch {
+        sessionStorage.removeItem('zf_session')
         router.replace('/login')
       }
     }
@@ -114,6 +123,7 @@ function DashboardContent() {
 
     const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_OUT') {
+        sessionStorage.removeItem('zf_session')
         setAuthChecked(false)
         setUserProfile(null)
         setUserRegs(new Map())

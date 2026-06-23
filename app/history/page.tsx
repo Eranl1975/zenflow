@@ -29,8 +29,13 @@ export default function HistoryPage() {
 
   useEffect(() => {
     async function load() {
+      if (!sessionStorage.getItem('zf_session')) {
+        router.replace('/login')
+        return
+      }
       const session = await getSession()
       if (!session) {
+        sessionStorage.removeItem('zf_session')
         router.replace('/login')
         return
       }
