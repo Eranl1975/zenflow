@@ -89,10 +89,11 @@ function DashboardContent() {
     if (!client) { setAuthChecked(true); return }
 
     async function initAuth() {
+      let authenticated = false
       try {
         const { data: { session } } = await client!.auth.getSession()
         if (!session?.user) {
-          router.replace('/login')
+          window.location.replace('/login')
           return
         }
         const profile = await getUserProfile(session.user.id)
@@ -101,24 +102,25 @@ function DashboardContent() {
           localStorage.setItem('zenflow_phone', profile.phone)
           if (profile.display_name) localStorage.setItem('zenflow_name', profile.display_name)
           fetchUserRegs()
+          authenticated = true
         } else {
-          router.replace('/login')
+          window.location.replace('/login')
         }
       } catch {
-        router.replace('/login')
+        window.location.replace('/login')
       } finally {
-        setAuthChecked(true)
+        // Only reveal the page when the user is confirmed authenticated.
+        // If redirecting, keep returning null so there is no flash of unauthenticated content.
+        if (authenticated) setAuthChecked(true)
       }
     }
 
     initAuth()
 
-    // Reactive updates only (SIGNED_OUT, explicit SIGNED_IN, TOKEN_REFRESHED)
+    // Reactive updates only
     const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_OUT') {
-        setUserProfile(null)
-        setUserRegs(new Map())
-        router.replace('/login')
+        window.location.replace('/login')
       } else if (event === 'SIGNED_IN' && session?.user) {
         try {
           const profile = await getUserProfile(session.user.id)
