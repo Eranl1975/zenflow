@@ -81,40 +81,55 @@ function DashboardContent() {
     return () => { client.removeChannel(channel) }
   }, [fetchClasses, fetchUserRegs])
 
-  // Auth — single source of truth via onAuthStateChange (handles INITIAL_SESSION on app reopen)
+  // Auth — getSession() for fast initial check, onAuthStateChange for reactive updates
   useEffect(() => {
     if (isAdmin) return // Admin: no auth needed, authChecked already true
 
     const client = getSupabaseClient()
     if (!client) { setAuthChecked(true); return }
 
-    const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
+    async function initAuth() {
       try {
-        if (event === 'SIGNED_OUT') {
-          setUserProfile(null)
-          setUserRegs(new Map())
+        const { data: { session } } = await client!.auth.getSession()
+        if (!session?.user) {
           router.replace('/login')
           return
         }
-        if (session?.user) {
-          // Handles INITIAL_SESSION (app reopen), SIGNED_IN (login), TOKEN_REFRESHED
-          const profile = await getUserProfile(session.user.id)
-          if (profile) {
-            setUserProfile(profile)
-            localStorage.setItem('zenflow_phone', profile.phone)
-            if (profile.display_name) localStorage.setItem('zenflow_name', profile.display_name)
-            fetchUserRegs()
-          } else {
-            router.replace('/login')
-          }
-        } else if (event === 'INITIAL_SESSION') {
-          // INITIAL_SESSION with no session = not logged in
+        const profile = await getUserProfile(session.user.id)
+        if (profile) {
+          setUserProfile(profile)
+          localStorage.setItem('zenflow_phone', profile.phone)
+          if (profile.display_name) localStorage.setItem('zenflow_name', profile.display_name)
+          fetchUserRegs()
+        } else {
           router.replace('/login')
         }
       } catch {
         router.replace('/login')
       } finally {
         setAuthChecked(true)
+      }
+    }
+
+    initAuth()
+
+    // Reactive updates only (SIGNED_OUT, explicit SIGNED_IN, TOKEN_REFRESHED)
+    const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setUserProfile(null)
+        setUserRegs(new Map())
+        router.replace('/login')
+      } else if (event === 'SIGNED_IN' && session?.user) {
+        try {
+          const profile = await getUserProfile(session.user.id)
+          if (profile) {
+            setUserProfile(profile)
+            localStorage.setItem('zenflow_phone', profile.phone)
+            if (profile.display_name) localStorage.setItem('zenflow_name', profile.display_name)
+            fetchUserRegs()
+            setAuthChecked(true)
+          }
+        } catch { /* ignore */ }
       }
     })
 
@@ -140,6 +155,9 @@ function DashboardContent() {
     await doSignOut()
     // onAuthStateChange SIGNED_OUT handles redirect
   }
+
+  // Non-admin: render nothing while auth resolves (prevents stuck skeleton flash)
+  if (!isAdmin && !authChecked) return null
 
   return (
     <main className="min-h-screen" style={{ backgroundColor: '#FAFAF7' }}>
@@ -212,7 +230,7 @@ function DashboardContent() {
             שיעורים קרובים
           </h2>
 
-          {(loading || !authChecked) ? (
+          {loading ? (
             <div className="space-y-3">
               {[1, 2, 3].map(i => <div key={i} className="h-40 rounded-2xl bg-gray-100 animate-pulse" />)}
             </div>
