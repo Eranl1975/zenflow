@@ -89,12 +89,11 @@ function DashboardContent() {
     if (!client) { setAuthChecked(true); return }
 
     async function initAuth() {
-      let authenticated = false
       try {
         const { data: { session } } = await client!.auth.getSession()
         if (!session?.user) {
-          window.location.replace('/login')
-          return
+          router.replace('/login')
+          return // authChecked stays false → skeleton shows until navigation
         }
         const profile = await getUserProfile(session.user.id)
         if (profile) {
@@ -102,25 +101,23 @@ function DashboardContent() {
           localStorage.setItem('zenflow_phone', profile.phone)
           if (profile.display_name) localStorage.setItem('zenflow_name', profile.display_name)
           fetchUserRegs()
-          authenticated = true
+          setAuthChecked(true) // reveal page only when confirmed authenticated
         } else {
-          window.location.replace('/login')
+          router.replace('/login')
         }
       } catch {
-        window.location.replace('/login')
-      } finally {
-        // Only reveal the page when the user is confirmed authenticated.
-        // If redirecting, keep returning null so there is no flash of unauthenticated content.
-        if (authenticated) setAuthChecked(true)
+        router.replace('/login')
       }
     }
 
     initAuth()
 
-    // Reactive updates only
     const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_OUT') {
-        window.location.replace('/login')
+        setAuthChecked(false)
+        setUserProfile(null)
+        setUserRegs(new Map())
+        router.replace('/login')
       } else if (event === 'SIGNED_IN' && session?.user) {
         try {
           const profile = await getUserProfile(session.user.id)
@@ -157,9 +154,6 @@ function DashboardContent() {
     await doSignOut()
     // onAuthStateChange SIGNED_OUT handles redirect
   }
-
-  // Non-admin: render nothing while auth resolves (prevents stuck skeleton flash)
-  if (!isAdmin && !authChecked) return null
 
   return (
     <main className="min-h-screen" style={{ backgroundColor: '#FAFAF7' }}>
@@ -232,7 +226,7 @@ function DashboardContent() {
             שיעורים קרובים
           </h2>
 
-          {loading ? (
+          {(loading || !authChecked) ? (
             <div className="space-y-3">
               {[1, 2, 3].map(i => <div key={i} className="h-40 rounded-2xl bg-gray-100 animate-pulse" />)}
             </div>

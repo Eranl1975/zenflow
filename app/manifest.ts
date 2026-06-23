@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'ZenFlow — Pilates Studio',
     short_name: 'ZenFlow',
     description: 'Real-time Pilates class management and registration',
-    start_url: '/',
+    start_url: '/login',
     display: 'standalone',
     background_color: '#F5F5F5',
     theme_color: '#26A69A',
