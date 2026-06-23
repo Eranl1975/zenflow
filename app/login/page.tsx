@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { signIn, signUp, getSession, backfillRegistrations } from '@/lib/auth'
+import { signIn, signUp, backfillRegistrations } from '@/lib/auth'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -19,13 +19,6 @@ export default function LoginPage() {
   const [suPhone, setSuPhone] = useState('')
   const [suPassword, setSuPassword] = useState('')
   const [suName, setSuName] = useState('')
-
-  // If already authenticated, go straight to the activity screen
-  useEffect(() => {
-    getSession().then(session => {
-      if (session) router.replace('/')
-    })
-  }, [router])
 
   async function handleSignIn(e: React.FormEvent) {
     e.preventDefault()
