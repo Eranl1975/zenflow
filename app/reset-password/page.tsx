@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 type Stage = 'verifying' | 'ready' | 'expired' | 'invalid'
 
@@ -14,6 +14,7 @@ function ResetPasswordForm() {
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const supabaseRef = useRef<SupabaseClient | null>(null)
 
   useEffect(() => {
     if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -34,6 +35,7 @@ function ResetPasswordForm() {
         },
       },
     )
+    supabaseRef.current = supabase
 
     let cancelled = false
 
@@ -96,18 +98,12 @@ function ResetPasswordForm() {
     setLoading(true)
     setError('')
 
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        auth: {
-          flowType: 'implicit',
-          persistSession: false,
-          autoRefreshToken: false,
-          detectSessionInUrl: false,
-        },
-      },
-    )
+    const supabase = supabaseRef.current
+    if (!supabase) {
+      setError('שגיאת מערכת. נסה שוב.')
+      setLoading(false)
+      return
+    }
 
     const { error: authError } = await supabase.auth.updateUser({ password })
     if (authError) {
