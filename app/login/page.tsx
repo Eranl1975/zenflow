@@ -1,11 +1,14 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { signIn, signUp, backfillRegistrations } from '@/lib/auth'
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const passwordUpdated = searchParams.get('message') === 'password_updated'
   const [tab, setTab] = useState<'signin' | 'signup'>('signin')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -83,6 +86,13 @@ export default function LoginPage() {
 
         {/* Card */}
         <div className="rounded-2xl bg-white p-6 shadow-lg border border-gray-100">
+          {/* Password updated banner */}
+          {passwordUpdated && (
+            <div className="rounded-lg bg-teal-50 px-4 py-2 text-sm text-teal-700 mb-4 text-center">
+              הסיסמה עודכנה בהצלחה! התחבר עם הסיסמה החדשה.
+            </div>
+          )}
+
           {/* Tabs */}
           <div className="flex mb-6 border-b border-gray-100">
             <button
@@ -137,6 +147,11 @@ export default function LoginPage() {
                   placeholder="••••••••"
                   className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100 transition"
                 />
+                <div className="mt-1 text-left">
+                  <Link href="/forgot-password" className="text-xs text-teal-600 hover:text-teal-700 underline">
+                    שכחתי סיסמה?
+                  </Link>
+                </div>
               </div>
 
               {error && (
@@ -250,5 +265,13 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }
