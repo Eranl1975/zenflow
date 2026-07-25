@@ -50,8 +50,11 @@ export default function ForgotPasswordPage() {
           <div className="rounded-2xl bg-white p-6 shadow-lg border border-gray-100 text-center">
             <div className="text-4xl mb-4">📧</div>
             <h2 className="text-xl font-bold mb-2" style={{ color: '#455A64' }}>קישור איפוס נשלח</h2>
-            <p className="text-sm mb-6" style={{ color: '#78909C', lineHeight: 1.7 }}>
+            <p className="text-sm mb-2" style={{ color: '#78909C', lineHeight: 1.7 }}>
               אם <strong>{email}</strong> רשום במערכת, קישור לאיפוס סיסמה נשלח לתיבת הדואר.
+            </p>
+            <p className="text-xs mb-6" style={{ color: '#90A4AE' }}>
+              לא מצאת? בדוק בתיקיית הספאם / דואר זבל.
             </p>
             <Link href="/login" className="text-teal-600 font-semibold hover:text-teal-700 underline text-sm">
               חזרה לכניסה

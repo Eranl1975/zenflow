@@ -29,13 +29,17 @@ export default function HistoryPage() {
 
   useEffect(() => {
     async function load() {
-      if (!sessionStorage.getItem('zf_session')) {
-        router.replace('/login')
-        return
+      try {
+        if (!sessionStorage.getItem('zf_session')) {
+          router.replace('/login')
+          return
+        }
+      } catch {
+        // Safari PWA may block sessionStorage — fall through to session check
       }
       const session = await getSession()
       if (!session) {
-        sessionStorage.removeItem('zf_session')
+        try { sessionStorage.removeItem('zf_session') } catch { /* ignore */ }
         router.replace('/login')
         return
       }

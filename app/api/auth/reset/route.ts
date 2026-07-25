@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   })
 
   if (error) {
-    console.error('[reset] resetPasswordForEmail error:', error.message)
+    console.error('[reset] resetPasswordForEmail error:', error.message, error.status)
     if (error.message?.includes('rate')) {
       return NextResponse.json(
         { error: 'יותר מדי בקשות. נסה שוב מאוחר יותר.' },

@@ -91,9 +91,13 @@ function DashboardContent() {
     async function initAuth() {
       // sessionStorage is cleared when the window/tab closes.
       // Require the flag set by the login page → forces login on every fresh open.
-      if (!sessionStorage.getItem('zf_session')) {
-        router.replace('/login')
-        return
+      try {
+        if (!sessionStorage.getItem('zf_session')) {
+          router.replace('/login')
+          return
+        }
+      } catch {
+        // Safari PWA may block sessionStorage — fall back to session check
       }
       try {
         const { data: { session } } = await client!.auth.getSession()
@@ -123,7 +127,7 @@ function DashboardContent() {
 
     const { data: { subscription } } = client.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_OUT') {
-        sessionStorage.removeItem('zf_session')
+        try { sessionStorage.removeItem('zf_session') } catch { /* ignore */ }
         setAuthChecked(false)
         setUserProfile(null)
         setUserRegs(new Map())
@@ -164,10 +168,10 @@ function DashboardContent() {
     try {
       await doSignOut()
     } catch {
-      // Force cleanup even if signOut fails
-      sessionStorage.removeItem('zf_session')
-      localStorage.removeItem('zenflow_phone')
-      localStorage.removeItem('zenflow_name')
+      // Force cleanup even if signOut fails (wrap individually for iOS Safari)
+      try { sessionStorage.removeItem('zf_session') } catch { /* ignore */ }
+      try { localStorage.removeItem('zenflow_phone') } catch { /* ignore */ }
+      try { localStorage.removeItem('zenflow_name') } catch { /* ignore */ }
     }
     // Always redirect, don't rely solely on onAuthStateChange
     router.replace('/login')

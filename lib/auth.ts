@@ -74,11 +74,10 @@ export async function signUp(
 
 /** Signs the current user out and clears localStorage/sessionStorage auth keys. */
 export async function doSignOut() {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem('zenflow_phone')
-    localStorage.removeItem('zenflow_name')
-    sessionStorage.removeItem('zf_session')
-  }
+  // Safari/iOS PWA can throw on storage access — wrap each individually
+  try { localStorage.removeItem('zenflow_phone') } catch { /* ignore */ }
+  try { localStorage.removeItem('zenflow_name') } catch { /* ignore */ }
+  try { sessionStorage.removeItem('zf_session') } catch { /* ignore */ }
   try {
     const supabase = getSupabaseClient()
     if (!supabase) return
