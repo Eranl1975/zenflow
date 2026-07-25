@@ -79,9 +79,13 @@ export async function doSignOut() {
     localStorage.removeItem('zenflow_name')
     sessionStorage.removeItem('zf_session')
   }
-  const supabase = getSupabaseClient()
-  if (!supabase) return
-  await supabase.auth.signOut()
+  try {
+    const supabase = getSupabaseClient()
+    if (!supabase) return
+    await supabase.auth.signOut()
+  } catch {
+    // Ignore sign-out errors — storage is already cleared
+  }
 }
 
 /**

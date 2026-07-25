@@ -161,8 +161,16 @@ function DashboardContent() {
   }
 
   async function handleSignOut() {
-    await doSignOut()
-    // onAuthStateChange SIGNED_OUT handles redirect
+    try {
+      await doSignOut()
+    } catch {
+      // Force cleanup even if signOut fails
+      sessionStorage.removeItem('zf_session')
+      localStorage.removeItem('zenflow_phone')
+      localStorage.removeItem('zenflow_name')
+    }
+    // Always redirect, don't rely solely on onAuthStateChange
+    router.replace('/login')
   }
 
   return (
