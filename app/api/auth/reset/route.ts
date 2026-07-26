@@ -36,9 +36,15 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     console.error('[reset] resetPasswordForEmail error:', error.message, error.status)
-    if (error.message?.includes('rate')) {
+    // Rate limit or cooldown errors — surface these to the user
+    if (
+      error.message?.includes('rate') ||
+      error.message?.includes('60 seconds') ||
+      error.message?.includes('security purposes') ||
+      error.status === 429
+    ) {
       return NextResponse.json(
-        { error: 'יותר מדי בקשות. נסה שוב מאוחר יותר.' },
+        { error: 'ניתן לשלוח בקשת איפוס פעם ב-60 שניות. נסה שוב בעוד דקה.' },
         { status: 429 },
       )
     }
