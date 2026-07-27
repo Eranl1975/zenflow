@@ -3,9 +3,9 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-  if (!supabaseUrl || !supabaseKey) {
+  if (!supabaseUrl || !serviceKey) {
     return NextResponse.json({ error: 'Supabase not configured' }, { status: 503 })
   }
 
@@ -15,9 +15,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'כתובת אימייל נדרשת.' }, { status: 400 })
   }
 
-  // Clean admin client — NO flowType override (was 'implicit' before, which
-  // may have interfered with how GoTrue generates recovery email links)
-  const supabase = createClient(supabaseUrl, supabaseKey, {
+  const supabase = createClient(supabaseUrl, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
 
@@ -26,12 +24,14 @@ export async function POST(req: NextRequest) {
     process.env.NEXT_PUBLIC_SITE_URL ||
     'https://zenflow-nine-blond.vercel.app'
 
+  const redirectTo = `${origin}/reset-password`
+
   const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
-    redirectTo: `${origin}/reset-password`,
+    redirectTo,
   })
 
   if (error) {
-    console.error('[reset] resetPasswordForEmail error:', error.message, error.status)
+    console.error('[reset] error:', error.message, error.status)
     if (
       error.message?.includes('rate') ||
       error.message?.includes('60 seconds') ||

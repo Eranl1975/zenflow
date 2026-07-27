@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 
 export default function ForgotPasswordPage() {
@@ -8,6 +8,7 @@ export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -35,7 +36,38 @@ export default function ForgotPasswordPage() {
 
     setSent(true)
     setLoading(false)
+    setResendCooldown(60)
   }
+
+  // Countdown timer for resend button
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const t = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000)
+    return () => clearTimeout(t)
+  }, [resendCooldown])
+
+  const handleResend = useCallback(async () => {
+    if (resendCooldown > 0 || loading) return
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch('/api/auth/reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setError(data.error ?? 'שליחה נכשלה. נסה שוב.')
+      } else {
+        setResendCooldown(60)
+        setError('')
+      }
+    } catch {
+      setError('שגיאת רשת. נסה שוב.')
+    }
+    setLoading(false)
+  }, [email, resendCooldown, loading])
 
   // ---- Success state ----
   if (sent) {
@@ -53,9 +85,39 @@ export default function ForgotPasswordPage() {
             <p className="text-sm mb-2" style={{ color: '#78909C', lineHeight: 1.7 }}>
               אם <strong>{email}</strong> רשום במערכת, קישור לאיפוס סיסמה נשלח לתיבת הדואר.
             </p>
-            <p className="text-xs mb-6" style={{ color: '#90A4AE' }}>
-              לא מצאת? בדוק בתיקיית הספאם / דואר זבל.
+            <p className="text-xs mb-2" style={{ color: '#90A4AE' }}>
+              לא מצאת? בדוק בתיקיות:
             </p>
+            <p className="text-xs mb-1" style={{ color: '#90A4AE' }}>
+              Spam / ספאם / דואר זבל
+            </p>
+            <p className="text-xs mb-1" style={{ color: '#90A4AE' }}>
+              Promotions / קידומי מכירות
+            </p>
+            <p className="text-xs mb-4" style={{ color: '#90A4AE' }}>
+              Updates / עדכונים
+            </p>
+            <p className="text-xs mb-6" style={{ color: '#B0BEC5', lineHeight: 1.6 }}>
+              המייל עשוי להגיע תוך 1-2 דקות.
+              <br />
+              ניתן לשלוח שוב אחרי 60 שניות.
+            </p>
+            {error && (
+              <p className="rounded-lg bg-rose-50 px-4 py-2 text-sm text-rose-600 mb-4">{error}</p>
+            )}
+
+            <button
+              onClick={handleResend}
+              disabled={resendCooldown > 0 || loading}
+              className="w-full rounded-xl bg-teal-500 py-2.5 text-sm font-semibold text-white hover:bg-teal-600 disabled:opacity-60 transition-colors mb-3"
+            >
+              {loading
+                ? 'שולח...'
+                : resendCooldown > 0
+                  ? `שלח שוב (${resendCooldown})`
+                  : 'שלח שוב'}
+            </button>
+
             <Link href="/login" className="text-teal-600 font-semibold hover:text-teal-700 underline text-sm">
               חזרה לכניסה
             </Link>
