@@ -3,7 +3,6 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  // Prefer service role key (server-side) — falls back to anon key
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
   if (!supabaseUrl || !supabaseKey) {
@@ -16,13 +15,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'כתובת אימייל נדרשת.' }, { status: 400 })
   }
 
+  // Clean admin client — NO flowType override (was 'implicit' before, which
+  // may have interfered with how GoTrue generates recovery email links)
   const supabase = createClient(supabaseUrl, supabaseKey, {
-    auth: {
-      flowType: 'implicit',
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
+    auth: { autoRefreshToken: false, persistSession: false },
   })
 
   const origin =
@@ -36,7 +32,6 @@ export async function POST(req: NextRequest) {
 
   if (error) {
     console.error('[reset] resetPasswordForEmail error:', error.message, error.status)
-    // Rate limit or cooldown errors — surface these to the user
     if (
       error.message?.includes('rate') ||
       error.message?.includes('60 seconds') ||
